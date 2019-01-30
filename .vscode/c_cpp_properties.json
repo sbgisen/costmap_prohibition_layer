@@ -1,0 +1,32 @@
+{
+    "configurations": [
+        {
+            "browse": {
+                "databaseFilename": "",
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "/home/gisen/local_ros/devel/include",
+                "/home/gisen/ros/devel/include",
+                "/opt/ros/kinetic/include",
+                "/home/gisen/local_ros/src/adi_driver/include",
+                "/home/gisen/local_ros/src/clear_and_rotate_recovery/include",
+                "/home/gisen/local_ros/src/people/face_detector/include",
+                "/home/gisen/local_ros/src/laser_filters/include",
+                "/home/gisen/local_ros/src/people/leg_detector/include",
+                "/home/gisen/local_ros/src/m-explore/map_merge/include",
+                "/home/gisen/local_ros/src/people/people_tracking_filter/include",
+                "/home/gisen/local_ros/src/rrt_exploration/include",
+                "/home/gisen/local_ros/src/sample_vs_code/include",
+                "/home/gisen/local_ros/src/six_point_two_eight/include",
+                "/home/gisen/local_ros/src/learn_ros/tutorial1/include",
+                "/home/gisen/local_ros/src/learn_ros/tutorial2/include",
+                "/home/gisen/local_ros/src/velodyne_simulator/velodyne_gazebo_plugins/include",
+                "/usr/include"
+            ],
+            "name": "Linux",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}
