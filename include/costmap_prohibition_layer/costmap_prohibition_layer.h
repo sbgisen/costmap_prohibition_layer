@@ -42,6 +42,7 @@
 #include <XmlRpcException.h>
 #include <tf/transform_datatypes.h>
 #include <mutex>
+#include <iostream>
 #include <geometry_msgs/PoseArray.h>
 #include <stdlib.h>
 #include <ros/ros.h>
