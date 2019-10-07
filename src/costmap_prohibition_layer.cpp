@@ -45,7 +45,7 @@ using costmap_2d::LETHAL_OBSTACLE;
 
 namespace costmap_prohibition_layer_namespace
 {
-    
+
 CostmapProhibitionLayer::CostmapProhibitionLayer() : _dsrv(NULL)
 {
 }
@@ -72,19 +72,19 @@ void CostmapProhibitionLayer::onInitialize()
 
   // set initial bounds
   _min_x = _min_y = _max_x = _max_y = 0;
-  
+
   // reading the prohibition areas out of the namespace of this plugin!
   // e.g.: "move_base/global_costmap/prohibition_layer/prohibition_areas"
   std::string params = "prohibition_areas";
   if (!parseProhibitionListFromYaml(&nh, params))
     ROS_ERROR_STREAM("Reading prohibition areas from '" << nh.getNamespace() << "/" << params << "' failed!");
-  
+
   _fill_polygons = true;
   nh.param("fill_polygons", _fill_polygons, _fill_polygons);
-  
+
   // compute map bounds for the current set of prohibition areas.
   computeMapBounds();
-  
+
   ROS_INFO("CostmapProhibitionLayer initialized.");
 }
 
@@ -95,17 +95,103 @@ void CostmapProhibitionLayer::reconfigureCB(CostmapProhibitionLayerConfig &confi
 }
 
 
-void CostmapProhibitionLayer::updateBounds(double robot_x, double robot_y, double robot_yaw, 
+void CostmapProhibitionLayer::updateBounds(double robot_x, double robot_y, double robot_yaw,
                                            double *min_x, double *min_y, double *max_x, double *max_y)
 {
     if (!enabled_)
         return;
-    
+
     std::lock_guard<std::mutex> l(_data_mutex);
-    
+
     if (_prohibition_points.empty() && _prohibition_polygons.empty())
         return;
 
+    ros::NodeHandle nh;
+    XmlRpc::XmlRpcValue param_yaml;
+    nh.getParam("/move_base/global_costmap/costmap_prohibition_layer/prohibition_areas", param_yaml);
+
+    if (param_yaml.getType() == XmlRpc::XmlRpcValue::TypeArray)  // list of goals
+    {
+      for (int i = 0; i < param_yaml.size(); ++i)
+      {
+        if (param_yaml[i].getType() == XmlRpc::XmlRpcValue::TypeArray)
+        {
+          std::vector<geometry_msgs::Point> vector_to_add;
+
+          /* **************************************
+           * differ between points and polygons
+           * lines get to a polygon with the resolution
+           * of the costmap
+           **************************************** */
+
+          // add a point
+          if (param_yaml[i].size() == 1)
+          {
+            geometry_msgs::Point point;
+            getPoint(param_yaml[i][0], point);
+            _prohibition_points.push_back(point);
+          }
+          // add a line
+          else if (param_yaml[i].size() == 2)
+          {
+            if (param_yaml[i][0].getType() == XmlRpc::XmlRpcValue::TypeDouble ||
+	      param_yaml[i][0].getType() == XmlRpc::XmlRpcValue::TypeInt)
+            {
+              // add a lonely point
+              geometry_msgs::Point point;
+              getPoint(param_yaml[i], point);
+              _prohibition_points.push_back(point);
+            }
+            else
+            {
+              // add a line!
+              geometry_msgs::Point point_A;
+              getPoint(param_yaml[i][0], point_A);
+              vector_to_add.push_back(point_A);
+
+              geometry_msgs::Point point_B;
+              getPoint(param_yaml[i][1], point_B);
+              vector_to_add.push_back(point_B);
+
+              // calculate the normal vector for AB
+              geometry_msgs::Point point_N;
+              point_N.x = point_B.y - point_A.y;
+              point_N.y = point_A.x - point_B.x;
+
+              // get the absolute value of N to normalize and get
+              // it to the length of the costmap resolution
+              double abs_N = sqrt(pow(point_N.x, 2) + pow(point_N.y, 2));
+              point_N.x = point_N.x / abs_N * _costmap_resolution;
+              point_N.y = point_N.y / abs_N * _costmap_resolution;
+
+              // calculate the new points to get a polygon which can be filled
+              geometry_msgs::Point point;
+              point.x = point_A.x + point_N.x;
+              point.y = point_A.y + point_N.y;
+              vector_to_add.push_back(point);
+
+              point.x = point_B.x + point_N.x;
+              point.y = point_B.y + point_N.y;
+              vector_to_add.push_back(point);
+
+              _prohibition_polygons.push_back(vector_to_add);
+            }
+          }
+          // add a point or add a polygon
+          else if (param_yaml[i].size() >= 3)
+          {
+            // add a polygon with any number of points
+            for (int j = 0; j < param_yaml[i].size(); ++j)
+            {
+              geometry_msgs::Point point;
+              getPoint(param_yaml[i][j], point);
+              vector_to_add.push_back(point);
+            }
+            _prohibition_polygons.push_back(vector_to_add);
+          }
+        }
+      }
+    }
     *min_x = std::min(*min_x, _min_x);
     *min_y = std::min(*min_y, _min_y);
     *max_x = std::max(*max_x, _max_x);
@@ -119,13 +205,13 @@ void CostmapProhibitionLayer::updateCosts(costmap_2d::Costmap2D &master_grid, in
     return;
 
   std::lock_guard<std::mutex> l(_data_mutex);
-  
+
   // set costs of polygons
   for (int i = 0; i < _prohibition_polygons.size(); ++i)
   {
       setPolygonCost(master_grid, _prohibition_polygons[i], LETHAL_OBSTACLE, min_i, min_j, max_i, max_j, _fill_polygons);
   }
-      
+
   // set cost of points
   for (int i = 0; i < _prohibition_points.size(); ++i)
   {
@@ -141,10 +227,10 @@ void CostmapProhibitionLayer::updateCosts(costmap_2d::Costmap2D &master_grid, in
 void CostmapProhibitionLayer::computeMapBounds()
 {
   std::lock_guard<std::mutex> l(_data_mutex);
-    
+
   // reset bounds
   _min_x = _min_y = _max_x = _max_y = 0;
-    
+
   // iterate polygons
   for (int i = 0; i < _prohibition_polygons.size(); ++i)
   {
@@ -230,7 +316,7 @@ void CostmapProhibitionLayer::raytrace(int x0, int y0, int x1, int y1, std::vect
     int error = dx - dy;
     dx *= 2;
     dy *= 2;
-        
+
     for (; n > 0; --n)
     {
         cells.push_back(pt);
