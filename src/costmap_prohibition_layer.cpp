@@ -109,6 +109,8 @@ void CostmapProhibitionLayer::updateBounds(double robot_x, double robot_y, doubl
     ros::NodeHandle nh;
     XmlRpc::XmlRpcValue param_yaml;
     nh.getParam("/move_base/global_costmap/costmap_prohibition_layer/prohibition_areas", param_yaml);
+    _prohibition_points.clear();
+    _prohibition_polygons.clear();
 
     if (param_yaml.getType() == XmlRpc::XmlRpcValue::TypeArray)  // list of goals
     {
